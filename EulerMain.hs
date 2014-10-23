@@ -11,7 +11,7 @@ solutions = [Just euler1,
              Just euler2,
              Just euler3,
              Just euler4,
-             Nothing, -- 5
+             Just euler5,
              Just euler6,
              Nothing,  -- 7
              Just euler8,

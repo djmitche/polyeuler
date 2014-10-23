@@ -163,14 +163,7 @@ palindromicNumber n = s == reverse s
 -- What is the smallest number that is evenly divisible by all of the
 -- numbers from 1 to 20?
 euler5 :: Integer
-euler5 = let numsToCheck = reverse [11..20]
-         in head (filter (divisibleByAll numsToCheck) [20..])
-
-
--- Determine if n is divisible by all xs.
-divisibleByAll :: [Integer] -> Integer -> Bool
-divisibleByAll xs n = length (takeWhile (factor n) xs) == length xs
-
+euler5 = foldl lcm 1 [1..20]
 
 -------------
 -- Problem #6

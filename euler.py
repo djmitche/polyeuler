@@ -8,6 +8,9 @@
 
 import sys
 import math
+import bisect
+import time
+import itertools
 from util import *
 
 ##
@@ -575,6 +578,379 @@ def soln():
 
     return suns
 
+@problem(501)
+def soln():
+    """
+    The eight divisors of 24 are 1, 2, 3, 4, 6, 8, 12 and 24. The ten numbers not
+    exceeding 100 having exactly eight divisors are 24, 30, 40, 42, 54, 56, 66, 70,
+    78 and 88. Let f(n) be the count of numbers not exceeding n with exactly eight
+    divisors.
+
+    You are given f(100) = 10, f(1000) = 180 and f(10^6) = 224427.
+
+    Find f(10^12).
+    """
+    # prime factors:
+    # 
+    # 24: 2^3 * 3^1
+    #
+    #     2 2 2 3
+    #  1:
+    #  2: *
+    #  4: * *
+    #  8: * * *
+    #  3:       *
+    #  6: *     *
+    #  12:* *   *
+    #  24:* * * *
+    #
+    # 30: 2 * 3 * 5
+    # 40: 2*3 * 5
+    # 42: 2 * 3 * 7
+    # 54: 2 * 3^3
+    # 88: 2*3 * 11^1
+    #
+    # so, all numbers with prime factors such that there are 8 distinct combinations:
+    #
+    # * p1 * p2 * p3
+    # * p1^3 * p2
+    # * p1^7
+    #
+    # So given n, f(n) is the sum of
+    #
+    # A. count of triples of primes with p1 < p2 < p3 < (n/4), s.t. p1*p2*p3 <= n
+    # B. count of pairs of primes with p1 < (n/2)^(1/3), p2 <= n/8, s.t. p1^3*p2 <= n
+    # C. count of primes <= n^(1/7) 
+    #
+    # The tricky bit is to calculate A quickly
+
+    def calcA(n):
+        print "calcA", n
+        start = time.time()
+        pmax = n / 4
+        i = 0
+        nd6 = n/6
+        nd2 = n/2
+        for p3 in primegen():
+            if p3 > nd6:
+                break
+            for p2 in primegen():
+                if p2 >= p3:
+                    break
+                p2p3 = p2*p3
+                if p2p3 > nd2:
+                    break
+                ndp2p3 = n / p2p3
+                for p1 in primegen():
+                    if p1 >= p2:
+                        break
+                    if p1 * p2p3 <= n:
+                        i += 1
+                        #print "%d * %d * %d = %d" % (p1, p2, p3, p1 * p2 * p3)
+                    else:
+                        break
+        print time.time() - start
+        return i
+
+    def calcB(n):
+        print "calcB", n
+        p1max = pow(n/2, 1/3.0)
+        p1s = list(itertools.takewhile(lambda p: p <= p1max, primegen()))
+        p2max = n/8
+        p2s = list(itertools.takewhile(lambda p: p <= p2max, primegen()))
+
+        i = 0
+        for p1 in p1s:
+            for p2 in p2s:
+                if p1 == p2:
+                    continue
+                if p1 ** 3 * p2 <= n:
+                    #print "%d^3 * %d = %d" % (p1, p2, p1 ** 3 * p2)
+                    i += 1
+        return i
+
+    def calcC(n):
+        print "calcC", n
+        septroot = pow(n, 1/7.0)
+        i = 0
+        for p in primegen():
+            if p > septroot:
+                break
+            #print "%d^7 = %d" % (p, p ** 7)
+            i += 1
+        return i
+
+    def f(n):
+        return calcA(n) + calcB(n) + calcC(n)
+
+    assert f(100) == 10
+    assert f(1000) == 180
+    assert f(10**6) == 224427
+    return f(10**12)
+
+@problem(502)
+def soln():
+    """
+    We define a block to be a rectangle with a height of 1 and an integer-valued length. Let a castle be a configuration of stacked blocks.
+
+    Given a game grid that is w units wide and h units tall, a castle is generated according to the following rules:
+
+	Blocks can be placed on top of other blocks as long as nothing sticks out past the edges or hangs out over open space.
+	All blocks are aligned/snapped to the grid.
+	Any two neighboring blocks on the same row have at least one unit of space between them.
+	The bottom row is occupied by a block of length w.
+	The maximum achieved height of the entire castle is exactly h.
+	The castle is made from an even number of blocks.
+
+    The following is a sample castle for w=8 and h=5:
+
+      X   X 
+      X   XX
+     XX X XX
+    XXXXX XX
+    XXXXXXXX
+
+    Let F(w,h) represent the number of valid castles, given grid parameters w and h.
+
+    For example, F(4,2) = 10, F(13,10) = 3729050610636, F(10,13) = 37959702514, and F(100,100) mod 1 000 000 007 = 841913936.
+
+    Find (F(1012,100) + F(10000,10000) + F(100,1012)) mod 1 000 000 007.
+    """
+
+    # solution:
+    #
+    # lists of rows of blocks, each represented as list of [startcol, endcol)
+    # tuples
+
+    def show_row(row):
+        rv = []
+        x = 0
+        for l, r in row:
+            rv.append(' ' * (l - x))
+            rv.append('#' * (r - l))
+            x = r
+        return ''.join(rv)
+
+    def show_solution(soln):
+        n = sum(len(row) for row in soln)
+        return '\n'.join(show_row(row) for row in soln) + (
+                "-- %d blocks (%s)" % (n, 'odd' if (n & 1) else 'even'))
+
+    def powerset(n):
+        if n == 0:
+            return
+        yield [n]
+        for i in xrange(1, n):
+            for subseq in powerset(i):
+                yield [n-i] + subseq
+
+    def subdivide(w):
+        "return a list of all possible combinations of blocks of width w"
+        for pset in powerset(w):
+            rows = [[], []] # one starts with a block, the other does not
+            x = 0
+            i = 0
+            for p in pset:
+                interval = x, x + p
+                x += p
+                rows[i&1].append(interval)
+                i += 1
+            for row in rows:
+                yield row
+
+    def all_solutions(w, h):
+        if h == 1:
+            for row in subdivide(w):
+                yield [row]
+        else: 
+            for soln in all_solutions(w, h-1):
+                for row in subdivide(w):
+                    yield [row] + soln
+
+    def rule1(soln):
+        occupied = set()
+        for row in soln:
+            row_occ = set()
+            for l, r in row:
+                for x in range(l, r):
+                    row_occ.add(x)
+            if occupied - row_occ:
+                return False
+            occupied = row_occ
+        return True
+
+    # rule 2 is trivial
+    # rule 3 is a consequence of subdivide
+
+    def rule4(soln, w):
+        return soln[-1] == [(0, w)]
+
+    def rule5(soln):
+        return soln[0] != []
+
+    def rule6(soln):
+        n = sum(len(row) for row in soln)
+        return not (n & 1)
+
+    def count_solutions(w, h):
+        count = 0
+        for soln in all_solutions(w, h):
+            if rule4(soln, w) and rule5(soln) and rule1(soln):
+                count += 1
+        return count
+
+    for h in range(1, 6):
+        for w in range(1, 6):
+            print "%4d" % count_solutions(w, h),
+        print
+
+    # NOTES: for the combined (even and odd) measurement, there is some
+    # regularity, breaking down a solution into a collection of combinations of
+    # shorter, thinner solutions.  However, the available ways of breaking
+    # these solutions down seem to admit duplicates.
+
+
+@answer(37125450.44)
+@problem(523)
+def soln():
+    """
+    Consider the following algorithm for sorting a list:
+
+	1. Starting from the beginning of the list, check each pair of adjacent elements in turn.
+	2. If the elements are out of order:
+	    a. Move the smallest element of the pair at the beginning of the list.
+	    b. Restart the process from step 1.
+	3. If all pairs are in order, stop.
+
+    For example, the list { 4 1 3 2 } is sorted as follows:
+
+	4_1 3 2 (4 and 1 are out of order so move 1 to the front of the list)
+	1 4_3 2 (4 and 3 are out of order so move 3 to the front of the list)
+	3_1 4 2 (3 and 1 are out of order so move 1 to the front of the list)
+	1 3 4_2 (4 and 2 are out of order so move 2 to the front of the list)
+	2_1 3 4 (2 and 1 are out of order so move 1 to the front of the list)
+	1 2 3 4 (The list is now sorted)
+
+    Let F(L) be the number of times step 2a is executed to sort list L. For example, F({ 4 1 3 2 }) = 5.
+
+    Let E(n) be the expected value of F(P) over all permutations P of the integers {1, 2, ..., n}.
+    You are given E(4) = 3.25 and E(10) = 115.725.
+
+    Find E(30). Give your answer rounded to two digits after the decimal point.
+    """
+    # let g(n) = total number of operations to sort all permutations of n items
+    # 
+    # assume we have g(n-1); for each permutation of n items, we will begin by sorting
+    # 
+    #     a1 .. a(n-1)
+    # 
+    # before even looking at an; after this, a1 .. a(n-1) will be in sorted order.
+    # and depending on which item an is, we will do additional moves to insert into that
+    # sorted order.
+    # 
+    #   0         moves: a1 .. a(n-1) an
+    #   1         move:  an a1 .. a(n-1)
+    #   2         moves: a1 an a2 .. a(n-1)
+    #   4         moves: a1 a2 an a3 .. a(n-1)
+    #   2**(n-2)  moves: a1 a2 .. a(n-2) an a(n-1)
+    # 
+    # so each ordering of the (n-1) items occurs n times, adding between 0 and n-1
+    # additional moves.
+    # 
+    # g(2) = 1
+    # g(n) = n* g(n-1) + (n-1)! * sum(i=0..n-2 | 2**i)
+    #      = n* g(n-1) + (n-1)! * (2**(n-1)-1)
+    # 
+    # then E(n) is g(n) / n!
+
+    def fact(n):
+        if n == 1:
+            return 1
+        else:
+            return n * fact(n-1)
+    assert fact(4) == 24
+
+    def g(n):
+        if n == 2:
+            return 1
+        return n * g(n-1) + fact(n-1) * (2 ** (n-1) - 1)
+    assert g(2) == 1
+    assert g(3) == 9
+    assert g(4) == 78
+
+    def E(n):
+        return float(g(n)) / fact(n)
+
+    assert str(round(E(4), 2)) == "3.25"
+    assert str(round(E(10), 3)) == "115.725"
+
+    return round(E(30), 2)
+
+
+@problem(535)
+def soln():
+    """
+    Consider the infinite integer sequence S starting with:
+    S = 1, 1, 2, 1, 3, 2, 4, 1, 5, 3, 6, 2, 7, 8, 4, 9, 1, 10, 11, 5, ...
+
+    Circle the first occurrence of each integer.
+    S = ①, 1, ②, 1, ③, 2, ④, 1, ⑤, 3, ⑥, 2, ⑦, ⑧, 4, ⑨, 1, ⑩, ⑪, 5, ...
+
+    The sequence is characterized by the following properties:
+
+    * The circled numbers are consecutive integers starting with 1.
+    * Immediately preceding each non-circled numbers ai, there are exactly
+      ⌊√ai⌋ adjacent circled numbers, where ⌊⌋ is the floor function.
+    * If we remove all circled numbers, the remaining numbers form a sequence identical to S, so S is a fractal sequence.
+
+    Let T(n) be the sum of the first n elements of the sequence.
+    You are given T(1) = 1, T(20) = 86, T(103) = 364089 and T(109) = 498676527978348241.
+
+    Find T(1018). Give the last 9 digits of your answer.
+    """
+    def squares():
+        s = 0
+        odd = 1
+        until = 2*(10**9)
+        while s < until:
+            yield s
+            s += odd
+            odd += 2
+    squares = list(squares())
+
+    sqrts = {}
+    def sqrt(x):
+        try:
+            return sqrts[x]
+        except KeyError:
+            for i, sq in enumerate(squares):
+                if sq == x:
+                    sqrts[x] = i
+                    break
+                elif sq > x:
+                    sqrts[x] = i-1
+                    break
+            return sqrts[x]
+
+    def _S():
+        circled = itertools.count(1)
+        yield circled.next()
+        noncircled = _S()
+        for i in noncircled:
+            for _ in xrange(sqrt(i)):
+                yield circled.next()
+            yield i
+
+    S = itertools.chain([1], _S())
+
+    # TODO: this isn't fast enough..
+    sum = 0
+    stop = 10**18
+    for i, x in enumerate(S, 1):
+        sum += x
+        if i == stop:
+            return int(str(sum)[-9:])
+
 ##
 # runner
 
@@ -583,7 +959,11 @@ def main():
         for n in sys.argv[1:]:
             n = int(n)
             if n in solutions:
-                print "%d: %d" % (n, solutions[n]())
+                soln = solutions[n]()
+                if soln is None:
+                    print("No solution")
+                else:
+                    print "%d: %s" % (n, soln)
             else:
                 print "%d: no solution" % (n,)
     else:

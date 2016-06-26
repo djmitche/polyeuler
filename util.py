@@ -117,6 +117,19 @@ def is_prime(n):
     mkprimes(n)
     return n in primes
 
+def primegen():
+    """
+    Generate an infinite sequence of primes
+    """
+    i = 0
+    mkprimes(100)
+    while True:
+        if i >= len(primes):
+            mkprimes(2*primes[-1])
+        yield primes[i]
+        i += 1
+    # TODO: a generic restartable iterator could help!
+
 ## Factoring
 
 def nfactors(t):

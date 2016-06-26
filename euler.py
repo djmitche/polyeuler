@@ -625,35 +625,41 @@ def soln():
     # The tricky bit is to calculate A quickly
 
     def calcA(n):
+
+        # Try picking the middle prime, which only has to go up to sqrt(n/2),
+        # then bisecting or just iterating to find the big one.  Sadly, this
+        # still requires knowing of primes ~(10^12)/6.
+        #
+        # Maybe use Miller-Rabin to just iterate over the integers in that
+        # range to find a prime?  The next range to check is ~(10^12)/10, then
+        # ~(10^12)/15, so it shrinks rapidly.
+
         print "calcA", n
         start = time.time()
-        pmax = n / 4
-        i = 0
-        nd6 = n/6
-        nd2 = n/2
-        for p3 in primegen():
-            if p3 > nd6:
+
+        count = 0
+        sqrtn2 = int(math.sqrt(n/2))
+        mkprimes(n/6)
+        print "primes generated up to", n/6
+        for i2, p2 in enumerate(primegen()):
+            if p2 > sqrtn2:
                 break
-            for p2 in primegen():
-                if p2 >= p3:
+            for p1 in primegen():
+                if p1 >= p2:
                     break
-                p2p3 = p2*p3
-                if p2p3 > nd2:
-                    break
-                ndp2p3 = n / p2p3
-                for p1 in primegen():
-                    if p1 >= p2:
+                maxp3 = n / (p1 * p2)
+                for j in xrange(i2, len(primes)):
+                    if primes[j] > maxp3:
+                        j -= 1
                         break
-                    if p1 * p2p3 <= n:
-                        i += 1
-                        #print "%d * %d * %d = %d" % (p1, p2, p3, p1 * p2 * p3)
-                    else:
-                        break
+                if j > i2:
+                    count += (j-i2)
         print time.time() - start
-        return i
+        return count
 
     def calcB(n):
         print "calcB", n
+        start = time.time()
         p1max = pow(n/2, 1/3.0)
         p1s = list(itertools.takewhile(lambda p: p <= p1max, primegen()))
         p2max = n/8
@@ -667,10 +673,12 @@ def soln():
                 if p1 ** 3 * p2 <= n:
                     #print "%d^3 * %d = %d" % (p1, p2, p1 ** 3 * p2)
                     i += 1
+        print time.time() - start
         return i
 
     def calcC(n):
         print "calcC", n
+        start = time.time()
         septroot = pow(n, 1/7.0)
         i = 0
         for p in primegen():
@@ -678,6 +686,7 @@ def soln():
                 break
             #print "%d^7 = %d" % (p, p ** 7)
             i += 1
+        print time.time() - start
         return i
 
     def f(n):
